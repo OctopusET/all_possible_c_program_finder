@@ -56,7 +56,7 @@ Testing all combinations is impractical for large sizes due to exponential growt
 
 Console output for successful compilations:
 ```
-Compilation successful! Saved as successful_code_1234_a1b2c3d4.c
+Compilation successful! Saved as 1234_a1b2c3d4.c
 Progress: 200 attempts, 2 successes (1.00%)
 ```
 
