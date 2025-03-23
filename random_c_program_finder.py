@@ -77,11 +77,11 @@ def generate_random_c_content(size, charset):
     """Generate random C code content of specified size"""
     return ''.join(random.choice(charset) for _ in range(size))
 
-def test_compilation(content, pid, compiler, timeout=2):
+def test_compilation(content, pid, compiler, output_dir, timeout=2):
     """Test if the generated content compiles"""
     unique_id = uuid.uuid4().hex[:8]
-    filename = f"successful_codes/{pid}_{unique_id}"
-    c_file = f"{filename}.c"
+    filename = f"successful_code_{pid}_{unique_id}"
+    c_file = os.path.join(output_dir, f"{filename}.c")
     
     # Write to file
     with open(c_file, "w") as f:
@@ -93,22 +93,23 @@ def test_compilation(content, pid, compiler, timeout=2):
                             stdout=subprocess.PIPE, 
                             stderr=subprocess.PIPE,
                             timeout=timeout,
-                            text=True)
-        success = result.returncode == 0
-        error_message = result.stderr if not success else ""
-        
-        # If compilation failed, remove the file
-        if not success:
-            os.remove(c_file)
-            if os.path.exists(f"{filename}.o"):
-                os.remove(f"{filename}.o")
+                            text=True,
+                            check=True)
+        success = True
+        error_message = ""
+    except subprocess.CalledProcessError as e:
+        success = False
+        error_message = e.stderr
+    except subprocess.TimeoutExpired:
+        success = False
+        error_message = "Compilation timed out"
     except Exception as e:
         success = False
         error_message = str(e)
-        if os.path.exists(c_file):
-            os.remove(c_file)
     
-    # Remove object file if it exists
+    # Clean up
+    if not success and os.path.exists(c_file):
+        os.remove(c_file)
     if os.path.exists(f"{filename}.o"):
         os.remove(f"{filename}.o")
     
@@ -116,14 +117,14 @@ def test_compilation(content, pid, compiler, timeout=2):
 
 def worker(args):
     """Worker process function"""
-    task_id, counter_lock, successful_count, total_count, byte_size, charset, compiler, show_errors = args
+    task_id, counter_lock, successful_count, total_count, byte_size, charset, compiler, output_dir, show_errors = args
     pid = os.getpid()
     
     # Set different random seed for each process
     random.seed(pid + task_id)
     
     content = generate_random_c_content(byte_size, charset)
-    success, content, filename, error_message = test_compilation(content, pid, compiler)
+    success, content, filename, error_message = test_compilation(content, pid, compiler, output_dir)
     
     with counter_lock:
         total_count.value += 1
@@ -157,6 +158,7 @@ def main():
     parser.add_argument('--compiler', type=str, default='gcc', help='Compiler to use (default: gcc)')
     parser.add_argument('--show-errors', action='store_true', help='Show compilation error messages')
     parser.add_argument('--timeout', type=int, default=2, help='Compilation timeout in seconds (default: 2)')
+    parser.add_argument('--output-dir', type=str, default='successful_codes', help='Output directory for successful codes')
     args = parser.parse_args()
     
     # Get character set based on arguments
@@ -196,7 +198,7 @@ def main():
     start_time = time.time()
     
     # Create output directory if it doesn't exist
-    os.makedirs("successful_codes", exist_ok=True)
+    os.makedirs(args.output_dir, exist_ok=True)
     
     # Handle unlimited mode
     if args.tasks == -1:
@@ -210,7 +212,7 @@ def main():
                     # Create batch of tasks
                     batch_size = cpu_count * 10
                     tasks = [(task_id + i, counter_lock, successful_count, total_count, 
-                             args.byte_size, charset, args.compiler, args.show_errors) 
+                             args.byte_size, charset, args.compiler, args.output_dir, args.show_errors)
                             for i in range(batch_size)]
                     task_id += batch_size
                     
@@ -228,7 +230,7 @@ def main():
     else:
         # Fixed number of tasks
         tasks = [(i, counter_lock, successful_count, total_count, args.byte_size, 
-                 charset, args.compiler, args.show_errors) 
+                 charset, args.compiler, args.output_dir, args.show_errors)
                 for i in range(args.tasks)]
         
         try:
