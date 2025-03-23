@@ -80,7 +80,7 @@ def generate_random_c_content(size, charset):
 def test_compilation(content, pid, compiler, timeout=2):
     """Test if the generated content compiles"""
     unique_id = uuid.uuid4().hex[:8]
-    filename = f"{pid}_{unique_id}"
+    filename = f"successful_codes/{pid}_{unique_id}"
     c_file = f"{filename}.c"
     
     # Write to file
