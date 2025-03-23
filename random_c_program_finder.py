@@ -68,7 +68,7 @@ def get_charset(include_lowercase=True, include_uppercase=True, include_digits=T
     if include_digits:
         charset += string.digits
     if include_symbols:
-        charset += "+-*/=<>!&|^%~?:;,.(){}[]\'\"\\"
+        charset += "+-*=<>!&|^%~?:;,.(){}[]\'\"\\"
     if include_whitespace:
         charset += " \t\n"
     return charset
